@@ -1,0 +1,1322 @@
+---
+
+# EMULSION (Epidemiological Multi-Level Simulation framework)
+# ===========================================================
+# 
+# Contributors and contact:
+# -------------------------
+# 
+#     - Sébastien Picault (sebastien.picault@inrae.fr)
+#     - Yu-Lin Huang
+#     - Vianney Sicard
+#     - Sandie Arnoux
+#     - Gaël Beaunée
+#     - Pauline Ezanno (pauline.ezanno@inrae.fr)
+# 
+#     INRAE, Oniris, BIOEPAR, 44300, Nantes, France
+# 
+# 
+# How to cite:
+# ------------
+# 
+#     S. Picault, Y.-L. Huang, V. Sicard, S. Arnoux, G. Beaunée,
+#     P. Ezanno (2019). "EMULSION: Transparent and flexible multiscale
+#     stochastic models in human, animal and plant epidemiology", PLoS
+#     Computational Biology 15(9): e1007342. DOI:
+#     10.1371/journal.pcbi.1007342
+# 
+# 
+# License:
+# --------
+# 
+#     Copyright 2016 INRAE and Univ. Lille
+# 
+#     Inter Deposit Digital Number: IDDN.FR.001.280043.000.R.P.2018.000.10000
+# 
+#     Agence pour la Protection des Programmes,
+#     54 rue de Paradis, 75010 Paris, France
+# 
+#     Licensed under the Apache License, Version 2.0 (the "License");
+#     you may not use this file except in compliance with the License.
+#     You may obtain a copy of the License at
+# 
+#         http://www.apache.org/licenses/LICENSE-2.0
+# 
+#     Unless required by applicable law or agreed to in writing, software
+#     distributed under the License is distributed on an "AS IS" BASIS,
+#     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#     See the License for the specific language governing permissions and
+#     limitations under the License.
+
+#  __  __           _      _
+# |  \/  |         | |    | |
+# | \  / | ___   __| | ___| |
+# | |\/| |/ _ \ / _` |/ _ \ |
+# | |  | | (_) | (_| |  __/ |
+# |_|  |_|\___/ \__,_|\___|_|
+#
+#  _____        __                           _   _
+# |_   _|      / _|                         | | (_)
+#   | |  _ __ | |_ ___  _ __ _ __ ___   __ _| |_ _  ___  _ __
+#   | | | '_ \|  _/ _ \| '__| '_ ` _ \ / _` | __| |/ _ \| '_ \
+#  _| |_| | | | || (_) | |  | | | | | | (_| | |_| | (_) | | | |
+# |_____|_| |_|_| \___/|_|  |_| |_| |_|\__,_|\__|_|\___/|_| |_|
+
+# MODEL NAME
+model_name: hybrid_swine_model_metapop_weekly_weights_and_external_infection
+
+# MODEL DESCRIPTION
+model_info:
+  abstract: 'This model is a discrete-time, stochastic, compartmental SEIR model 
+  of a swine farrow-to-finish farm. It includes various life stages (from gestation to finishing), 
+  sex, and age structures, modeled at the metapopulation scale. The finishing group 
+  consists of 12 pens.'
+  author: 'Jerrold M. Tubay (j.m.tubay@uu.nl)'
+
+#  _______ _
+# |__   __(_)
+#    | |   _ _ __ ___   ___
+#    | |  | | '_ ` _ \ / _ \
+#    | |  | | | | | | |  __/
+#    |_|  |_|_| |_| |_|\___|
+
+# TIME INFORMATION
+# This section specifies the time unit (used for durations, rates, etc.), 
+# the duration of each time step, the start date, and the total duration of the simulation.
+time_info:
+  time_unit: 'weeks'
+  delta_t: 1
+  origin: 'January 1, 2020' # IMPORTANT: Ensure this date aligns with the available data
+  total_duration: '170'
+
+
+#  _                    _
+# | |                  | |
+# | |     _____   _____| |___
+# | |    / _ \ \ / / _ \ / __|
+# | |___|  __/\ V /  __/ \__ \
+# |______\___| \_/ \___|_|___/
+
+# ORGANIZATION LEVELS USED IN THE SIMULATION
+# This hybrid model considers two levels: the population and its components (individuals).
+levels:
+  metapop:
+    desc: 'Metapopulation level'
+    aggregation_type: 'metapopulation'
+    # The metapopulation is explicitly linked to a specific class in a Python code add-on.
+    #file: 'movement_12fatpens_weight.py'
+    file: 'movement_12fatpens_outrans.py'
+    class_name: Metapopulation
+    contains:
+      - herd
+    aggregate_vars:
+      - name: metapop_total_herd
+        collect: total_herd
+        operator: sum
+      - name: metapop_total_I
+        collect: total_I
+        operator: sum
+      - name: metapop_total_Jn
+        collect: total_Jn
+        operator: sum
+      - name: metapop_total_Jnb
+        collect: total_Jnb
+        operator: sum
+      - name: metapop_total_Jf
+        collect: total_Jf
+        operator: sum
+      - name: metapop_total_A
+        collect: total_A
+        operator: sum
+      - name: metapop_total_G
+        collect: total_G
+        operator: sum
+      - name: metapop_total_F
+        collect: total_F
+        operator: sum
+  herd:
+    desc: 'Population level'
+    aggregation_type: 'hybrid'
+    contains:
+      - animals
+    #aggregate_vars:
+    #  - name: average_weight
+    #    collect: weight
+    #    operator: 'mean'
+    #  - name: 'total_beta'
+    #    collect: 'beta_i'
+    #    operator: 'sum'
+  animals:
+    desc: 'Individual level'
+    #default_prototype: healthy
+
+
+#  _____
+# |  __ \
+# | |__) | __ ___   ___ ___  ___ ___  ___  ___
+# |  ___/ '__/ _ \ / __/ _ \/ __/ __|/ _ \/ __|
+# | |   | | | (_) | (_|  __/\__ \__ \  __/\__ \
+# |_|   |_|  \___/ \___\___||___/___/\___||___/
+
+# LIST OF PROCESSES TO BE EXECUTED DURING EACH TIME STEP
+# In a hybrid model, processes occur at the population level (herd) and are managed by groupings.
+processes:
+  metapop:
+    - animal_farmer_movement
+    - sample_I_from_fatteners
+    - external_pathway
+  animals:
+    - sex: infection_by_sex
+    - age_group: sex_and_age
+    - health_state: infection_by_age
+    - parity: parities
+
+#   _____                       _
+#  / ____|                     (_)
+# | |  __ _ __ ___  _   _ _ __  _ _ __   __ _
+# | | |_ | '__/ _ \| | | | '_ \| | '_ \ / _` |
+# | |__| | | | (_) | |_| | |_) | | | | | (_| |
+#  \_____|_|  \___/ \__,_| .__/|_|_| |_|\__, |
+#                        | |             __/ |
+#                        |_|            |___/
+
+# DESCRIPTION OF GROUPINGS ASSOCIATED WITH PROCESSES NOT DIRECTLY BASED ON STATE MACHINES
+# A grouping is based on one or more variables. For example, the grouping for managing the 'infection' process 
+# is based on the 'health_state' variable (from the state machine with the same name). Thus, one group will be 
+# defined for each possible value of the health_state variable.
+grouping:
+  herd:
+    infection_by_sex: [health_state, sex]
+    infection_by_age: [health_state, age_group]
+    sex_and_age: [sex, age_group]
+    parities: [parity]
+    
+
+#   _____ _        _         __  __            _     _
+#  / ____| |      | |       |  \/  |          | |   (_)
+# | (___ | |_ __ _| |_ ___  | \  / | __ _  ___| |__  _ _ __   ___  ___
+#  \___ \| __/ _` | __/ _ \ | |\/| |/ _` |/ __| '_ \| | '_ \ / _ \/ __|
+#  ____) | || (_| | ||  __/ | |  | | (_| | (__| | | | | | | |  __/\__ \
+# |_____/ \__\__,_|\__\___| |_|  |_|\__,_|\___|_| |_|_|_| |_|\___||___/
+
+# DESCRIPTION OF THE STATE MACHINES INVOLVED IN THE MODEL
+state_machines:
+  sex:
+    desc: 'A state machine without transitions for representing male and female animals'
+    states:
+      - Female:
+          name: 'Female'
+          desc: 'Female animals'
+          fillcolor: 'orange'
+          default: yes
+      - Male:
+          name: 'Male'
+          desc: 'Male animals'
+          fillcolor: 'deepskyblue'
+  parity:
+    desc: 'A state machine without transitions, representing the succession of relevant parities 
+    (number of successive farrowings). The order of states defines a predecessor/successor 
+    sequence used by the keyword next_state in the prototype next_parity.'
+    states:
+      - P0:
+          name: 'Nulliparous'
+          desc: 'Nulliparous animal (no previous farrowing)'
+          fillcolor: 'orange'
+      - P1:
+          name: 'Parity 1'
+          desc: 'Animal with parity 1 (first farrowing)'
+          fillcolor: 'pink'
+      - P2:
+          name: 'Parity 2'
+          desc: 'Animal with parity 2'
+          fillcolor: 'red'
+      - P3:
+          name: 'Parity 3+'
+          desc: 'Animal with parity 3 or more'
+          fillcolor: 'purple'
+  age_group:
+    desc: 'The state machine defining the evolution of age groups from newborn piglets to gilts or sows.'
+    states:
+      - Jnb:
+          name: 'Juvenile Newborn'
+          desc: 'Juvenile newborn animals (farrowing stage)'
+          fillcolor: 'orange'
+          duration: 'weaning_time'
+          on_stay:
+            - set_var: age
+              value: age + delta_t
+            - set_var: weight
+              value: 'random_normal(mean_wean_weight, sd_wean_weight)'
+      - Jn:
+          name: 'Piglets in the Nursery'
+          desc: 'Weaned piglets transferred to the nursery'
+          fillcolor: 'orchid'
+          duration: 'nursing_time'
+          on_stay:
+            - set_var: age
+              value: age + delta_t
+            - set_var: weight
+              value: 'random_normal(mean_fattening_weight, sd_fattening_weight)'
+      - Jf:
+          name: 'Pigs for Fattening'
+          desc: 'Pigs transferred for fattening until finishing'
+          fillcolor: 'pink'
+          duration: 'finishing_time'
+          on_stay:
+            - set_var: age
+              value: age + delta_t
+      - Sold_fattener:
+          name: 'Sold Fatteners'
+          desc: 'Pigs that have been sold'
+          fillcolor: 'sienna'
+          on_enter:
+            - record_change: nb_fatteners_sold
+          autoremove: yes
+      - Sold_nursery:
+          name: 'Sold Nursery Pigs'
+          desc: 'Pigs sold from the nursery in excess of the required number of fattening pigs'
+          on_enter:
+            - record_change: nb_nursery_pigs_sold
+          autoremove: yes
+      - A:
+          name: 'Non-gestating Adult'
+          desc: 'Adult animals'
+          fillcolor: 'brown'
+          on_stay:
+            - set_var: age
+              value: age + delta_t
+      - G:
+          name: 'Gestating Adult'
+          desc: 'Adult animals (producing new juveniles)'
+          fillcolor: 'deepskyblue'
+          on_enter:
+            - set_var: gestation_age
+              value: 0
+          on_stay:
+            - set_var: age
+              value: age + delta_t
+            - set_var: gestation_age
+              value: gestation_age + delta_t
+          on_exit:
+            - set_var: gestation_age
+              value: 0
+      - F: 
+          name: 'Farrowing Sow'
+          desc: 'Farrowing sow (providing milk for newborn piglets)'
+          duration: 'weaning_time'
+          on_stay:
+            - set_var: age
+              value: age + delta_t
+      - D:
+          name: 'Dead'
+          desc: 'Compartment for dead animals'
+          fillcolor: white
+          on_enter:
+            - record_change: dead_pigs
+          autoremove: yes
+    transitions:
+      - from: Jnb
+        to: Jn
+        proba: 1
+        cond: metapop_total_Jn < K_herd
+      - from: Jn
+        to: Jf
+        proba: 1
+        cond: Eq(metapop_total_Jf, 0)
+      - from: Jf
+        to: Sold_fattener
+        proba: 1
+      - from: A
+        to: D
+        rate: '(1 / avg_adult_death_age) + (is_I * mortality_I)'
+        escape: yes
+        desc: 'All non-gestating adults are subject to mortality due to old age'
+      - from: A
+        to: G
+        cond: 'OR(age >= adult_age, is_P1, is_P2, is_P3)'
+        rate: 'AND(StrictLessThan(metapop_total_G, K_sows), IfThenElse(is_P0, conception_g, conception_s))'
+        desc: 'Non-gestating adult females start gestation at rate "conception_g" for gilts and "conception_s" for sows'
+      - from: G
+        to: F
+        cond: 'gestation_age >= dur_gestation'
+        rate: 1
+        on_cross:
+          - become: 'next_parity'
+        desc: 'At the end of gestation, gestating adult females return to the A state and produce offspring. Their parity is updated using the prototype next_parity, which increments the value of the discrete variable parity. If the sow/gilt is infectious, vertical transmission is possible to one of the newborn.'
+      - from: F
+        to: A
+        proba: 1
+      - from: G
+        to: D
+        rate: '1 / avg_adult_death_age + (is_I * mortality_I)'
+        desc: 'All gestating adults are subject to mortality due to old age, which can occur even during gestation, hence escape is set to yes'
+      - from: Jnb
+        to: D
+        rate: mortality_weaning
+        escape: yes
+        desc: 'Additional mortality component if born infected'
+      - from: Jn
+        to: D
+        rate: mortality_nursery
+        escape: yes
+      - from: Jf
+        to: D
+        rate: mortality_fattening
+        escape: yes
+  # Health states
+  health_state:
+    desc: 'Grouping of pigs from farrowing to fattening'
+    states:
+      - M:
+          name: 'Maternally Immune Individuals'
+          desc: 'Piglets that are maternally immune to the disease'
+          fillcolor: 'teal'
+      - S:
+          name: 'Susceptible Individuals'
+          desc: 'Individuals that are susceptible to the disease'
+          fillcolor: 'forestgreen'
+          default: yes
+      - E:
+          name: 'Exposed Individuals'
+          desc: 'Individuals that have been exposed to the disease but are not infectious yet'
+          fillcolor: 'bisque'
+          duration: 'latent_period'
+      - I:
+          name: 'Infectious Individuals'
+          desc: 'Individuals that are infected and infectious'
+          fillcolor: 'tomato'
+      - R:
+          name: 'Recovered Individuals'
+          desc: 'Individuals recovered from the disease'
+    transitions:
+      - from: M
+        to: S
+        rate: '1 / maternal_immunity_period'
+        desc: 'Maternally immune status can be lost at the rate of 1 / maternal_immunity_period'
+      - from: S
+        to: E
+        rate: 'force_of_infection_int + trans_btwn_pens_frm_movement'
+        desc: 'Horizontal and vertical transmission from piglets to farrowing sows is not possible for HEV'
+      - from: E
+        to: I
+        rate: 'NOT(OR(is_Jn, is_Jnb)) + OR(is_Jn, is_Jnb) * (1 / maternal_immunity_period)'
+        desc: 'Newborn and nursing pigs have maternal immunity to HEV, but nursing pigs can lose maternal immunity at the rate of 1/maternal_immunity_period'
+      - from: I
+        to: R
+        rate: 'recovery_rate'
+      - from: R
+        to: S
+        rate: 'waning_rate'
+        desc: 'Immunity wanes over time'
+
+
+#  _____                               _
+# |  __ \                             | |
+# | |__) |_ _ _ __ __ _ _ __ ___   ___| |_ ___ _ __ ___
+# |  ___/ _` | '__/ _` | '_ ` _ \ / _ \ __/ _ \ '__/ __|
+# | |  | (_| | | | (_| | | | | | |  __/ ||  __/ |  \__ \
+# |_|   \__,_|_|  \__,_|_| |_| |_|\___|\__\___|_|  |___/
+
+# PARAMETERS, FUNCTIONS, AND EXPRESSIONS USED IN THE MODEL
+parameters:
+  #initial_herd_size:
+  #  desc: 'Initial number of animals in the herd (source: https://edepot.wur.nl/178589, average)'
+  #  value: 366
+  init_herd_size_for_piglets:
+    desc: 'Initial number of animals except sows in the herd (source: https://edepot.wur.nl/178589, average)'
+    value: 144
+  init_nb_nongestating:
+    desc: 'Initial number of non-gestating sows/gilts'
+    value: 'K_sows'
+  init_nb_gestating:
+    desc: 'Initial number of gestating sows/gilts'
+    value: 'K_sows'
+  init_nb_farrowing:
+    desc: 'Initial number of farrowing sows/gilts'
+    value: 'K_sows'
+  init_infected:
+    desc: 'Initial number of infectious animals in the herd'
+    value: 1
+  init_prev:
+    desc: 'Initial infection prevalence'
+    value: 0.1
+  init_prev_n:
+    desc: 'Initial infection prevalence in the nursing area'
+    value: 0.0
+  init_prev_f:
+    desc: 'Initial infection prevalence in the fattening area'
+    value: 0.1
+  K:
+    desc: 'Farm’s carrying capacity (source: https://www.dutchnews.nl/2021/09/the-netherlands-has-fewer-pig-farms-but-each-one-has-more-pigs/)'
+    value: 1000
+  K_sows:
+    desc: 'Average farm’s sow/gilt carrying capacity (source: https://edepot.wur.nl/178589)'
+    value: 24
+  K_herd:
+    desc: 'Carrying capacity of a group (e.g., newborn, nursery, fatteners)'
+    value: 200
+  death:
+    desc: 'Death rate (/week)'
+    value: 0.07
+  dur_gestation:
+    desc: 'Duration of gestation (weeks)'
+    value: 'ROUND(random_normal(16, 1))'
+  conception_g:
+    desc: 'Conception rate of gilts (/week)'
+    value: 0.56
+  conception_s:
+    desc: 'Conception rate of sows (/week)'
+    value: 0.63
+  conception:
+    desc: 'Conception rate'
+    value: 'is_P0 * conception_g + NOT(is_P0) * conception_s'
+  avg_adult_death_age:
+    desc: 'Mean longevity of adults (weeks)'
+    value: 72
+  adult_age:
+    desc: '($\alpha_a$) Age when individuals become adults (weeks)'
+    value: 'random_integers(24,32)'
+  init_age_distrib:
+    desc: 'Distribution of initial ages (weeks)'
+    value: 'adult_age + random_integers(0, 7)'
+  init_age_nursing:
+    desc: 'Initial age of nursing piglets (farrowing area) in the initial population (weeks)'
+    value: 'random_uniform(0,3)'
+  init_age_nursery:
+    desc: 'Initial age of piglets in the nursery for the initial population (weeks)'
+    value: 'weaning_time + random_uniform(6,8)'
+  init_age_fattener:
+    desc: 'Initial age of fattening pigs in the initial population (weeks)'
+    value: 'weaning_time + random_uniform(6,8) + random_uniform(16,18)'
+  ## Additional parameters
+  weaning_time:
+    desc: '($\tau_w$) Weaning time of animal (age in weeks)'
+    value: 3
+  nursing_time:
+    desc: '($\tau_n$) Nursing time of animal (age in weeks)'
+    value: 'random_integers(min_nt, max_nt)'
+  max_nt:
+    desc: 'Maximum nursing time (age in weeks)'
+    value: 8
+  min_nt:
+    desc: 'Minimum nursing time (age in weeks)'
+    value: 6
+  finishing_time:
+    desc: '($\tau_f$) Finishing time of animal (age in weeks)'
+    value: 17
+    #'random_integers(min_ft, max_ft)'
+  max_ft:
+    desc: 'Maximum finishing time (age in weeks)'
+    value: 18
+  min_ft:
+    desc: 'Minimum finishing time (age in weeks)'
+    value: 16
+  ## SEIR PARAMETERS (source: https://porcinehealthmanagement.biomedcentral.com/articles/10.1186/s40813-021-00189-z
+## and https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7863251/)
+  avg_dur_latency:
+    desc: 'Average duration of latency'
+    value: 'random_uniform(1,2)'
+  latent_period:
+    desc: '($\tau_{lp}$) Latent period of exposed individuals before they become infectious (weeks)'
+    value: 'random_integers(1,2)'  ## 'random_gamma(50,avg_dur_latency/50)'
+  transmission_rate:
+    desc: '($\beta_{int}$) Disease transmission rate within a population (/week)'
+    value: 5.32250497
+    # Estimated parameters [0.25029094 4.6720436  0.50886938 0.74910467]
+    # New [0.30354651 4.64530697 0.50488372 0.61573385]
+  force_of_infection_int:
+    desc: 'The rate at which a disease is transmitted from I to S (/week)'
+    value: 'transmission_rate * total_I / total_herd'
+  mean_bp_trans:
+    desc: 'Mean of between-pen transmission rate'
+    value: '7 * (10 ** -8)'
+  min_bp_trans:
+    desc: 'Minimum of between-pen transmission rate'
+    value: '5 * (10 ** -9)'
+  max_bp_trans:
+    desc: 'Maximum of between-pen transmission rate'
+    value: '3 * (10 ** -7)'
+  sd_bp_trans:
+    desc: 'Estimated standard deviation of between-pen transmission rate'
+    value: '(max_bp_trans - min_bp_trans) / 4'
+  shape_bp_trans:
+    desc: 'Shape of between-pen transmission rate'
+    value: '(mean_bp_trans / sd_bp_trans) ** 2'
+  scale_bp_trans:
+    desc: 'Scale of between-pen transmission rate'
+    value: '(sd_bp_trans ** 2) / mean_bp_trans'
+  bp_trans:
+    desc: 'Between-pen transmission rate'
+    value: '7 * random_gamma(shape_bp_trans, scale_bp_trans)'
+  between_herd_trans:
+    desc: '($\beta_{ext}$) Transmission rate between herds'
+    value: 0.5524361 
+  neighboring_herd_trans:
+    desc: '($\beta_{pen}$) Transmission rate between neighboring fattening herds'
+    value: 0.51157841
+  #force_of_infection_ext:
+  #  desc: 'External force of infection function assuming frequency dependence'
+  #  value: 'total_beta * bp_trans / HEV_length' # Based on individual shedding
+  HEV_length:
+    desc: 'The length of the HEV genome is approximately 7.2 kilobases or 7,200 base pairs.'
+    value: 7200
+  waning_rate:
+    desc: 'Waning rate of immunity from the disease per week'
+    value: 0
+    #value: 'random_gamma(shape_bp_trans, scale_bp_trans)' #from https://porcinehealthmanagement.biomedcentral.com/articles/10.1186/s40813-021-00189-z assumed to be gamma distributed
+  recovery_rate:
+    desc: '($\gamma$) Recovery rate of individuals from the disease'
+    value: '7 / 17'
+  mu_I:
+    desc: '($\mu_I$) Base mortality of infected individuals'
+    value: 0.001
+  mortality_I:
+    desc: 'Mortality due to infection'
+    value: 'mu_I * total_herd / K_herd'
+  maternal_immunity_period:
+    desc: '($\tau_m$) Period of time that a piglet is immune from the disease due to maternal immunity (weeks)'
+    value: 'weaning_time + nursing_time'
+  ## Other than vertical transmission, shedding from sows and sow-acquired immunity
+  ## can be considered in the disease transmission in a farrowing area
+  vert_trans:
+    desc: '($\nu$) Vertical transmission from sow to piglet'
+    value: 0.1
+  vert_trans_I:
+    desc: 'Vertical transmission from infected sow to piglet'
+    value: 'vert_trans * is_I'
+  ## Mortality per stages (source: https://academic.oup.com/tas/article/4/2/462/5841627?login=true#205954221)
+  mortality_weaning:
+    desc: '($\gamma$) Mortality of piglets before weaning'
+    value: 0
+    #'7 * 0.036 * total_Jnb / K_herd'
+  mortality_nursery:
+    desc: '($\gamma$) Mortality of piglets at the nursery'
+    value: 0
+    #'7 * 0.041 * total_Jn / K_herd'
+  mortality_fattening:
+    desc: '($\gamma$) Mortality of piglets at the fattening stage'
+    value: 0 
+    #'7 * 0.056 * total_Jf / K_herd'
+  ## reproduction parameter (source: https://porcinehealthmanagement.biomedcentral.com/articles/10.1186/s40813-020-00182-y/tables/1)
+  mean_pba:
+    desc: 'Average number of pigs born alive'
+    value: 13.1
+  sd_pba:
+    desc: 'Standard deviation of the number of pigs born alive'
+    value: 1.06
+  pba:
+    desc: 'Number of pigs born alive'
+    value: 'ROUND(random_normal(mean_pba, sd_pba))'
+  ## Metapopulation
+  nb_herds:
+    desc: 'Number of different populations'
+    value: 17
+  nb_infected_herds:
+    desc: 'Number of infected herds'
+    value: 1
+  init_proba_mat_imm:
+    desc: 'Initial probability of maternal immunity'
+    value: 0.5 # 0.49542851 
+  init_portion_I:
+    desc: 'Initial portion of infectious individuals from the initial prevalence; others are exposed'
+    value: 0.0
+  proba_removal_if_I:
+    desc: 'Probability of being removed from the population if infectious'
+    value: 0.0
+  proba_removal_if_E:
+    desc: 'Probability of being removed from the population if exposed'
+    value: 0.0
+  biosec_remove_risky_move:
+    desc: 'Indicator parameter for avoiding risky movement: 1 = avoid, 0 = no restriction'
+    value: 0
+  # Weight-related parameters
+  # Sources: https://www.prrs.com/expertise/publications/prrsflex-increases-average-daily-weight-gain-dutch-finishing-pigs
+  # doi:10.1017/S175173111900346X
+  # https://porcinehealthmanagement.biomedcentral.com/articles/10.1186/s40813-021-00225-y
+  mean_wean_weight:
+    desc: 'Mean weight of weaning piglets'
+    value: 6.34
+  sd_wean_weight:
+    desc: 'Standard deviation of the weight of weaning piglets'
+    value: 0.7
+  min_wean_weight:
+    desc: '($\gamma_w$) Minimum weaning weight for piglets (source: https://www.mdpi.com/2076-2615/10/6/1017)'
+    value: 5.5
+  mean_fattening_weight: 
+    desc: 'Mean weight of fattening piglets'
+    value: 30
+  sd_fattening_weight:
+    desc: 'Standard deviation of the weight of fattening piglets'
+    value: 5
+  min_fattening_weight:
+    desc: '($\gamma_f$) Minimum fattening weight for piglets'
+    value: 24
+  # Probabilities for external transmission
+  proba_encounter:
+    desc: '(max $p_{enc}$) Maximum probability of encountering an infectious agent'
+    value: 0.9
+  proba_trans:
+    desc: '(max $p_{trans}$) Maximum probability of transmission from an infectious agent'
+    value: 0.9 
+  proba_ext_I:
+    desc: '(max $p_{inf}$) Maximum probability that an external agent is infectious'
+    value: 0.9 
+  proba_success_biosec_opt:
+    desc: '(optimal $p_{biosec}$) Optimistic probability of success of biosecurity measures'
+    value: 1.0
+  proba_success_biosec_ml:
+    desc: '(most likely $p_{biosec}$) Most likely probability of success of biosecurity measures'
+    value: 0.9
+  proba_success_biosec_pes:
+    desc: '(pessimistic $p_{biosec}$) Pessimistic probability of success of biosecurity measures'
+    value: 0.8
+
+
+#   _____ _        _
+#  / ____| |      | |
+# | (___ | |_ __ _| |_ _____   ____ _ _ __ ___
+#  \___ \| __/ _` | __/ _ \ \ / / _` | '__/ __|
+#  ____) | || (_| | ||  __/\ V / (_| | |  \__ \
+# |_____/ \__\__,_|\__\___| \_/ \__,_|_|  |___/
+
+statevars:
+  age:
+    desc: 'Age of the animal'
+  weight:
+    desc: 'Weight of the animal'
+  gestation_age:
+    desc: 'Gestation age of the animal'
+  nb_fatteners_sold:
+    desc: 'Number of fatteners sold'
+  nb_nursery_pigs_sold:
+    desc: 'Number of nursery pigs sold'
+  dead_pigs:
+    desc: 'Number of dead pigs'
+  nb_piglets_I_from_vert_trans:
+    desc: 'Number of piglets that are born infected'
+  initial_prevalence:
+    desc: 'Initial prevalence in the population'
+  initial_herd_size:
+    desc: 'Initial number of animals in the herd (source: https://edepot.wur.nl/178589, average)'
+  trans_btwn_pens_frm_movement:
+    desc: 'Transmission between pens from farmer movement'
+  initial_nongestating_herd_size:
+    desc: 'Initial number of non-gestating sows and gilts'
+  initial_gestating_herd_size:
+    desc: 'Initial number of gestating sows and gilts'
+  initial_newborn_herd_size:
+    desc: 'Initial number of unweaned piglets'
+  initial_farrowing_herd_size:
+    desc: 'Initial number of farrowing sows'
+  initial_nursery_herd_size:
+    desc: 'Initial number of pigs in the nursery'
+  initial_fattening_herd_size:
+    desc: 'Initial number of pigs in the growing/fattening area'
+  nb_of_sampled_I_Jf:
+    desc: 'Number of sampled fatteners that are infected'
+  nb_new_farrowing_sows:
+    desc: 'Number of new farrowing sows at each time step'
+  external_infection:
+    desc: 'Probability of infection from external sources (e.g., vermin, visitors, delivery vehicles, wild animals)'
+
+
+#  _____           _        _
+# |  __ \         | |      | |
+# | |__) | __ ___ | |_ ___ | |_ _   _ _ __   ___  ___
+# |  ___/ '__/ _ \| __/ _ \| __| | | | '_ \ / _ \/ __|
+# | |   | | | (_) | || (_) | |_| |_| | |_) |  __/\__ \
+# |_|   |_|  \___/ \__\___/ \__|\__, | .__/ \___||___/
+#                                __/ | |
+#                               |___/|_|
+
+# PROTOTYPES describe typical individuals, characterized by specific
+# values of their variables
+prototypes:
+  herd:      
+    - nongestating_population:
+        desc: 'population initially of nongestating sows and gilts'
+        initial_prevalence: init_prev
+        initial_nongestating_herd_size: init_nb_nongestating
+        initial_gestating_herd_size: 0
+        initial_farrowing_herd_size: 0
+        initial_newborn_herd_size: 0
+        initial_nursery_herd_size: 0
+        initial_fattening_herd_size: 0
+        trans_btwn_pens_frm_movement: 0
+        external_infection: 0
+    - gestating_population:
+        desc: 'population initially of gestating sows and gilts'
+        initial_prevalence: init_prev
+        initial_nongestating_herd_size: 0
+        initial_gestating_herd_size: init_nb_gestating
+        initial_farrowing_herd_size: 0
+        initial_newborn_herd_size: 0
+        initial_nursery_herd_size: 0
+        initial_fattening_herd_size: 0
+        trans_btwn_pens_frm_movement: 0
+        nb_new_farrowing_sows: 0
+        external_infection: 0
+    - farrowing_population:
+        desc: 'population initially of farrowing sows and nursing piglets'
+        initial_prevalence: init_prev
+        initial_nongestating_herd_size: 0
+        initial_gestating_herd_size: 0
+        initial_farrowing_herd_size: init_nb_farrowing
+        initial_newborn_herd_size: init_herd_size_for_piglets
+        initial_nursery_herd_size: 0
+        initial_fattening_herd_size: 0
+        trans_btwn_pens_frm_movement: 0
+        external_infection: 0
+    - nursery_population:
+        desc: 'population initially of pigs in the nursery area'
+        initial_prevalence: init_prev_n
+        initial_nongestating_herd_size: 0
+        initial_gestating_herd_size: 0
+        initial_farrowing_herd_size: 0
+        initial_newborn_herd_size: 0
+        initial_nursery_herd_size: init_herd_size_for_piglets
+        initial_fattening_herd_size: 0
+        trans_btwn_pens_frm_movement: 0
+        external_infection: 0
+    - fattening_population1:
+        desc: 'population initially of growing and fattening pigs'
+        initial_prevalence: init_prev_f
+        initial_nongestating_herd_size: 0
+        initial_gestating_herd_size: 0
+        initial_farrowing_herd_size: 0
+        initial_newborn_herd_size: 0
+        initial_nursery_herd_size: 0
+        initial_fattening_herd_size: 12
+        trans_btwn_pens_frm_movement: 0
+        external_infection: 0
+    - fattening_population2:
+        desc: 'population initially of growing and fattening pigs'
+        initial_prevalence: init_prev_f
+        initial_nongestating_herd_size: 0
+        initial_gestating_herd_size: 0
+        initial_farrowing_herd_size: 0
+        initial_newborn_herd_size: 0
+        initial_nursery_herd_size: 0
+        initial_fattening_herd_size: 12
+        trans_btwn_pens_frm_movement: 0
+        external_infection: 0
+    - fattening_population3:
+        desc: 'population initially of growing and fattening pigs'
+        initial_prevalence: init_prev_f
+        initial_nongestating_herd_size: 0
+        initial_gestating_herd_size: 0
+        initial_farrowing_herd_size: 0
+        initial_newborn_herd_size: 0
+        initial_nursery_herd_size: 0
+        initial_fattening_herd_size: 12
+        trans_btwn_pens_frm_movement: 0
+        external_infection: 0
+    - fattening_population4:
+        desc: 'population initially of growing and fattening pigs'
+        initial_prevalence: init_prev_f
+        initial_nongestating_herd_size: 0
+        initial_gestating_herd_size: 0
+        initial_farrowing_herd_size: 0
+        initial_newborn_herd_size: 0
+        initial_nursery_herd_size: 0
+        initial_fattening_herd_size: 12
+        trans_btwn_pens_frm_movement: 0
+        external_infection: 0
+    - fattening_population5:
+        desc: 'population initially of growing and fattening pigs'
+        initial_prevalence: init_prev_f
+        initial_nongestating_herd_size: 0
+        initial_gestating_herd_size: 0
+        initial_farrowing_herd_size: 0
+        initial_newborn_herd_size: 0
+        initial_nursery_herd_size: 0
+        initial_fattening_herd_size: 12
+        trans_btwn_pens_frm_movement: 0
+        external_infection: 0
+    - fattening_population6:
+        desc: 'population initially of growing and fattening pigs'
+        initial_prevalence: init_prev_f
+        initial_nongestating_herd_size: 0
+        initial_gestating_herd_size: 0
+        initial_farrowing_herd_size: 0
+        initial_newborn_herd_size: 0
+        initial_nursery_herd_size: 0
+        initial_fattening_herd_size: 12
+        trans_btwn_pens_frm_movement: 0
+        external_infection: 0
+    - fattening_population7:
+        desc: 'population initially of growing and fattening pigs'
+        initial_prevalence: init_prev_f
+        initial_nongestating_herd_size: 0
+        initial_gestating_herd_size: 0
+        initial_farrowing_herd_size: 0
+        initial_newborn_herd_size: 0
+        initial_nursery_herd_size: 0
+        initial_fattening_herd_size: 12
+        trans_btwn_pens_frm_movement: 0
+        external_infection: 0
+    - fattening_population8:
+        desc: 'population initially of growing and fattening pigs'
+        initial_prevalence: init_prev_f
+        initial_nongestating_herd_size: 0
+        initial_gestating_herd_size: 0
+        initial_farrowing_herd_size: 0
+        initial_newborn_herd_size: 0
+        initial_nursery_herd_size: 0
+        initial_fattening_herd_size: 12
+        trans_btwn_pens_frm_movement: 0
+        external_infection: 0
+    - fattening_population9:
+        desc: 'population initially of growing and fattening pigs'
+        initial_prevalence: init_prev_f
+        initial_nongestating_herd_size: 0
+        initial_gestating_herd_size: 0
+        initial_farrowing_herd_size: 0
+        initial_newborn_herd_size: 0
+        initial_nursery_herd_size: 0
+        initial_fattening_herd_size: 12
+        trans_btwn_pens_frm_movement: 0
+        external_infection: 0
+    - fattening_population10:
+        desc: 'population initially of growing and fattening pigs'
+        initial_prevalence: init_prev_f
+        initial_nongestating_herd_size: 0
+        initial_gestating_herd_size: 0
+        initial_farrowing_herd_size: 0
+        initial_newborn_herd_size: 0
+        initial_nursery_herd_size: 0
+        initial_fattening_herd_size: 12
+        trans_btwn_pens_frm_movement: 0
+        external_infection: 0
+    - fattening_population11:
+        desc: 'population initially of growing and fattening pigs'
+        initial_prevalence: init_prev_f
+        initial_nongestating_herd_size: 0
+        initial_gestating_herd_size: 0
+        initial_farrowing_herd_size: 0
+        initial_newborn_herd_size: 0
+        initial_nursery_herd_size: 0
+        initial_fattening_herd_size: 12
+        trans_btwn_pens_frm_movement: 0
+        external_infection: 0
+    - fattening_population12:
+        desc: 'population initially of growing and fattening pigs'
+        initial_prevalence: init_prev_f
+        initial_nongestating_herd_size: 0
+        initial_gestating_herd_size: 0
+        initial_farrowing_herd_size: 0
+        initial_newborn_herd_size: 0
+        initial_nursery_herd_size: 0
+        initial_fattening_herd_size: 12
+        trans_btwn_pens_frm_movement: 0
+        external_infection: 0
+    - dressing_room1:
+        desc: 'dressing room 1 in a farm'
+        initial_prevalence: 0
+        initial_nongestating_herd_size: 0
+        initial_gestating_herd_size: 0
+        initial_farrowing_herd_size: 0
+        initial_newborn_herd_size: 0
+        initial_nursery_herd_size: 0
+        initial_fattening_herd_size: 0
+        trans_btwn_pens_frm_movement: 0
+        external_infection: 0
+    - dressing_room2:
+        desc: 'dressing room 2 in a farm'
+        initial_prevalence: 0
+        initial_nongestating_herd_size: 0
+        initial_gestating_herd_size: 0
+        initial_farrowing_herd_size: 0
+        initial_newborn_herd_size: 0
+        initial_nursery_herd_size: 0
+        initial_fattening_herd_size: 0
+        trans_btwn_pens_frm_movement: 0
+        external_infection: 0
+  animals:
+    - nongestating:
+        desc: 'initial healthy sows'
+        age_group: A
+        parity: P0
+        beta_i: 0
+        beta_i_max: 0
+        weight: 0
+    - nongestating_S:
+        desc: 'susceptible initial healthy sows'
+        age_group: A
+        age: init_age_distrib
+        sex: Female
+        parity: random
+        health_state: S
+        beta_i: 0
+        beta_i_max: 0
+        weight: 0
+    - nongestating_E:
+        desc: 'initial infected animals'
+        age_group: A
+        age: init_age_distrib
+        sex: Female
+        parity: random
+        health_state: E
+        beta_i: 0
+        beta_i_max: 0
+        weight: 0
+    - nongestating_I:
+        desc: 'initial infectious animals'
+        age_group: A
+        age: init_age_distrib
+        sex: Female
+        parity: random
+        health_state: I
+        beta_i: 0
+        beta_i_max: 0
+        weight: 0
+    - newborn_M:
+        desc: 'newly created animals with maternal immunity'
+        age_group: Jnb
+        sex: random
+        age: 0
+        parity: P0
+        health_state: M
+        beta_i: 0
+        beta_i_max: 0
+        weight: 0
+    - newborn_S:
+        desc: 'newly created animals that are susceptible'
+        age_group: Jnb
+        sex: random
+        age: 0
+        parity: P0
+        health_state: S
+        beta_i: 0
+        beta_i_max: 0
+        weight: 0
+    - init_newborn:
+        desc: 'initially newborn animals'
+        age_group: Jnb
+        sex: random
+        age: init_age_nursing
+        parity: P0
+        health_state: M
+        weight: 0
+    - newborn_E:
+        desc: 'newly created animals that are infected but not infectious'
+        age_group: Jnb
+        sex: random
+        age: 0
+        parity: P0
+        health_state: E
+        weight: 0
+    - newborn_I:
+        desc: 'newly created animals that are infected but not infectious'
+        age_group: Jnb
+        sex: random
+        age: 0
+        parity: P0
+        health_state: I
+        weight: 0
+    - next_parity:
+        desc: 'increase the parity of a female at farrowing, based on
+        the order in which parities are defined in the corresponding
+        state machine'
+        parity: next_state
+    - gestating_S:
+        desc: 'initial healthy sows'
+        age_group: G
+        age: init_age_distrib
+        gestation_age: random_integers(0, dur_gestation)
+        sex: Female
+        parity: random
+        health_state: S
+        beta_i: 0
+        beta_i_max: 0
+        weight: 0
+    - gestating_E:
+        desc: 'initial infected animals'
+        age_group: G
+        age: init_age_distrib
+        gestation_age: random_integers(0, dur_gestation)
+        sex: Female
+        parity: random
+        health_state: E
+        beta_i: 0
+        beta_i_max: 0
+        weight: 0
+    - gestating_I:
+        desc: 'initial infectious animals'
+        age_group: G
+        age: init_age_distrib
+        gestation_age: random_integers(0, dur_gestation)
+        sex: Female
+        parity: random
+        health_state: I
+        beta_i: 0
+        beta_i_max: 0
+        weight: 0
+    - farrowing_pig_S:
+        desc: 'healthy farrowing sow providing milk to her piglets'
+        age_group: F
+        age: init_age_distrib
+        sex: Female
+        parity: random
+        health_state: S
+        beta_i: 0
+        beta_i_max: 0
+        weight: 0
+    - farrowing_pig_E:
+        desc: 'infected farrowing sow providing milk to her piglets'
+        age_group: F
+        age: init_age_distrib
+        sex: Female
+        parity: random
+        health_state: E
+        weight: 0
+    - farrowing_pig_I:
+        desc: 'infectious farrowing sow providing milk to her piglets'
+        age_group: F
+        age: init_age_distrib
+        sex: Female
+        parity: random
+        health_state: I
+        weight: 0
+    - nursery_pig_retain:
+        desc: 'weaned piglet in the nursery'
+        age_group: Jn
+        beta_i: 0
+        beta_i_max: 0
+        weight: 0
+    - nursery_pig_S:
+        desc: 'susceptible weaned piglet in the nursery'
+        age_group: Jn
+        age: init_age_nursery
+        sex: random
+        parity: P0
+        health_state: S
+        beta_i: 0
+        beta_i_max: 0
+        weight: 0
+    - nursery_pig_M:
+        desc: 'susceptible weaned piglet in the nursery'
+        age_group: Jn
+        age: init_age_nursery
+        sex: random
+        parity: P0
+        health_state: M
+        beta_i: 0
+        beta_i_max: 0
+        weight: 0
+    - nursery_pig_E:
+        desc: 'infected weaned piglet in the nursery'
+        age_group: Jn
+        age: init_age_nursery
+        sex: random
+        parity: P0
+        health_state: E
+        weight: 0
+    - nursery_pig_I:
+        desc: 'infectious weaned piglet in the nursery'
+        age_group: Jn
+        age: init_age_nursery
+        sex: random
+        parity: P0
+        health_state: I
+        weight: 0
+    - fattening_pig_from_nursery:
+        desc: 'fattening/growing pig'
+        age_group: Jf
+        age: init_age_fattener
+        beta_i: 0
+        beta_i_max: 0
+        weight: 0
+    - fattening_pig_S:
+        desc: 'susceptible fattening/growing pig'
+        age_group: Jf
+        age: init_age_fattener
+        sex: random
+        parity: P0
+        health_state: S
+        beta_i: 0
+        beta_i_max: 0
+        weight: 0
+    - fattening_pig_E:
+        desc: 'infected fattening/growing pig'
+        age_group: Jf
+        age: init_age_fattener
+        sex: random
+        parity: P0
+        health_state: E
+        weight: 0
+    - fattening_pig_I:
+        desc: 'infectious fattening/growing pig'
+        age_group: Jf
+        age: init_age_fattener
+        sex: random
+        parity: P0
+        health_state: I
+        weight: 0
+    - sample_Jf:
+        desc: 'sample fattening pigs'
+    - not_immune:
+        desc: 'no maternal immunity'
+        health_state: S
+    - infected_fattener:
+        desc: 'infected fattener because of transfer to fattening area'
+        health_state: I
+    - sold_pig_from_nursery:
+        desc: 'sold nursery pigs'
+        age_group: Sold_nursery
+        health_state: random
+    - make_healthy:
+        desc: 'make group healthy'
+        health_state: S
+    - infected_outside_farm:
+        desc: 'infected by an agent outside the farm'
+        health_state: next_state
+
+
+#  _____       _ _   _       _
+# |_   _|     (_) | (_)     | |
+#   | |  _ __  _| |_ _  __ _| |
+#   | | | '_ \| | __| |/ _` | |
+#  _| |_| | | | | |_| | (_| | |
+# |_____|_| |_|_|\__|_|\__,_|_|
+
+#   _____                _ _ _   _
+#  / ____|              | (_) | (_)
+# | |     ___  _ __   __| |_| |_ _  ___  _ __  ___
+# | |    / _ \| '_ \ / _` | | __| |/ _ \| '_ \/ __|
+# | |___| (_) | | | | (_| | | |_| | (_) | | | \__ \
+#  \_____\___/|_| |_|\__,_|_|\__|_|\___/|_| |_|___/
+
+# INITIAL CONDITIONS FOR THE SIMULATION
+# In IBM or hybrid models, initial conditions describe the prototypes
+# involved with the amount of individuals in each of those prototypes
+initial_conditions:
+  herd:
+    - prototype: nongestating_S
+      amount: 'ROUND(initial_nongestating_herd_size * (1 - initial_prevalence))'
+    - prototype: [nongestating_E, nongestating_I]
+      amount: 'ROUND(initial_nongestating_herd_size * initial_prevalence)'
+      proba: [1 - init_portion_I, init_portion_I]
+    - prototype: gestating_S
+      amount: 'ROUND(initial_gestating_herd_size * (1 - initial_prevalence))'
+    - prototype: [gestating_E, gestating_I]
+      amount: 'ROUND(initial_gestating_herd_size * initial_prevalence)'
+      proba: [1 - init_portion_I, init_portion_I]
+    - prototype: farrowing_pig_S
+      amount: 'ROUND(initial_farrowing_herd_size * (1 - initial_prevalence))'
+    - prototype: [farrowing_pig_E, farrowing_pig_I]
+      amount: 'ROUND(initial_farrowing_herd_size * initial_prevalence)'
+      proba: [1 - init_portion_I, init_portion_I]
+    - prototype: [newborn_M, newborn_S]
+      amount: 'initial_newborn_herd_size * (1 - initial_prevalence)'
+      proba: [init_proba_mat_imm, 1 - init_proba_mat_imm]
+    - prototype: [newborn_E, newborn_I]
+      amount: 'ROUND(initial_newborn_herd_size * initial_prevalence)'
+      proba: [1 - init_portion_I, init_portion_I]
+    - prototype: [nursery_pig_M, nursery_pig_S]
+      amount: 'initial_nursery_herd_size * (1 - initial_prevalence)'
+      proba: [init_proba_mat_imm, 1 - init_proba_mat_imm]
+    - prototype: [nursery_pig_E, nursery_pig_I]
+      amount: 'ROUND(initial_nursery_herd_size * initial_prevalence)'
+      proba: [1 - init_portion_I, init_portion_I]
+    - prototype: fattening_pig_S
+      amount: 'ROUND(initial_fattening_herd_size * (1 - initial_prevalence))'
+    - prototype: [fattening_pig_E, fattening_I]
+      amount: 'ROUND(initial_fattening_herd_size * initial_prevalence)'
+      proba: [1 - init_portion_I, init_portion_I]
+  metapop:
+    - prototype: nongestating_population
+      amount: 1
+    - prototype: gestating_population
+      amount: 1
+    - prototype: farrowing_population
+      amount: 1
+    - prototype: nursery_population
+      amount: 1
+    - prototype: fattening_population1
+      amount: 1
+    - prototype: fattening_population2
+      amount: 1
+    - prototype: fattening_population3
+      amount: 1
+    - prototype: fattening_population4
+      amount: 1
+    - prototype: fattening_population5
+      amount: 1
+    - prototype: fattening_population6
+      amount: 1
+    - prototype: fattening_population7
+      amount: 1
+    - prototype: fattening_population8
+      amount: 1
+    - prototype: fattening_population9
+      amount: 1
+    - prototype: fattening_population10
+      amount: 1
+    - prototype: fattening_population11
+      amount: 1
+    - prototype: fattening_population12
+      amount: 1
+    - prototype: dressing_room1
+      amount: 1
+    - prototype: dressing_room2
+      amount: 1
+
+
+#  _____                   _
+# |_   _|                 | |
+#   | |  _ __  _ __  _   _| |_
+#   | | | '_ \| '_ \| | | | __|
+#  _| |_| | | | |_) | |_| | |_
+# |_____|_| |_| .__/ \__,_|\__|
+#             | |
+#             |_|
+#  _____        _
+# |  __ \      | |
+# | |  | | __ _| |_ __ _
+# | |  | |/ _` | __/ _` |
+# | |__| | (_| | || (_| |
+# |_____/ \__,_|\__\__,_|
+
+input_data:
+  preprocessing:
+    - file: 'movement_12fatpens_outrans.py'
+      class_name: FarmerMovementsReader
+      desc: 'A preprocessor class for reading the CSV that describes the trade movements and restructuring it as a dictionary, stored in shared information in the simulation.'
+      input_files:
+        trade_file: 'modified_movements_10yr.csv'
+
+
+
+#   ____        _               _
+#  / __ \      | |             | |
+# | |  | |_   _| |_ _ __  _   _| |_ ___
+# | |  | | | | | __| '_ \| | | | __/ __|
+# | |__| | |_| | |_| |_) | |_| | |_\__ \
+#  \____/ \__,_|\__| .__/ \__,_|\__|___/
+#                  | |
+#                  |_|
+
+# TYPE AND PERIODICITY OF OUTPUTS
+# The amount of individuals in each state is automatically recorded
+# for all state machines each time step during the simulation.
+# Additional variables (e.g. expressions defined in the 'parameters'
+# section) can be specified below (as 'extra_vars').
+outputs:
+  type: csv
+  herd:
+    period: 1
+    extra_vars:     
+      #- total_E_Jnb
+      #- total_E_Jn
+      #- total_E_Jf
+      #- total_E_A
+      #- total_E_G
+      #- total_E_F
+      #- trans_btwn_pens_frm_movement
+      #- total_herd
+      - nb_of_sampled_I_Jf
+      #- nb_fatteners_sold
+      #- nb_nursery_pigs_sold
+      #- average_weight
+...
