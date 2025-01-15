@@ -6,6 +6,7 @@ This repository contains code and data for the farrow-to-finish swine farm model
 ## Repository Structure
 
 - `data/`: Folder containing the data used in the simulations.
+- `data/modified_movements_10yr.csv`: Farmer movement data used in the simulations
 - `LICENSE`: License file for the repository.
 - `movement_12fatpens_outrans.py`: Python script add-on for simulating movements in the swine model.
 - `parameter_estimation_notebook.ipynb`: Jupyter notebook for parameter estimation using ABC.
