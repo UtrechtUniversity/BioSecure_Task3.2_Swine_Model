@@ -1,3 +1,4 @@
+![Static Badge](https://img.shields.io/badge/emulsion-1.2rc5-brightgreen)
 # Model of a Farrow-to-Finish Swine Farm
 
 This repository contains code and data for the farrow-to-finish swine farm model. The main components include the farrow-to-finish farm model Emulsion configuration file, a Python add-on script for farmer and animal movement simulation, and a Jupyter notebook for parameter estimation of the transmission parameters using Approximate Bayesian Computation with Sequential Monte Carlo simulation (ABC-SMC).
