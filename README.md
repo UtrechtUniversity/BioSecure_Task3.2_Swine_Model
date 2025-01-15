@@ -19,7 +19,7 @@ This repository contains code and data for the farrow-to-finish swine farm model
 ### Prerequisites
 
 Ensure you have the following packages installed:
-- Python 3.x
+- `Python 3.x`
 - `emulsion==1.2rc5`
 - `jupyter`
 - `numpy`
@@ -34,7 +34,7 @@ Ensure you have the following packages installed:
 - `dateutil`
 - `random`
 
-You can install the required packages using pip:
+You can install some of the required packages using pip:
 ```bash
 pip install numpy pandas matplotlib pyabc docopt python-dateutil emulsion==1.2rc5 betapert
 ```
