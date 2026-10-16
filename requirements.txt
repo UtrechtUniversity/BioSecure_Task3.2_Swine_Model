@@ -1,0 +1,17 @@
+# Tested with CPython 3.12.14. Install with python -m pip install -r requirements.txt.
+emulsion==1.2rc5
+pyabc==0.12.15
+numpy==1.26.4
+pandas==2.2.3
+scipy==1.17.1
+matplotlib==3.8.4
+sympy==1.12
+bokeh==2.4.3
+betapert==0.1.5
+docopt==0.6.2
+python-dateutil==2.9.0.post0
+jupyter==1.1.1
+# Keep the notebook display hooks compatible with Matplotlib 3.8.
+ipython==8.37.0
+ipykernel==6.29.5
+matplotlib-inline==0.1.7

@@ -265,7 +265,7 @@ class Metapopulation(MetapopProcessManager):
                         # all movements to fattening becomes a movement to all fattening pens
                         if dest == 4:
                             for i in range (5,16):
-                                herds[dest].statevars.trans_btwn_pens_frm_movement += trans_I_from_source
+                                herds[i].statevars.trans_btwn_pens_frm_movement += trans_I_from_source
         
         # print trans rate between groups
         #for i in range(self.model.parameters.nb_herds):
@@ -302,7 +302,7 @@ class Metapopulation(MetapopProcessManager):
                     total_herd += herds[j].total_herd
             if total_herd != 0:
                 portion_I = total_I / total_herd
-            herds[i].statevars.trans_btwn_pens_frm_movement = self.model.parameters.neighboring_herd_trans * portion_I
+            herds[i].statevars.trans_btwn_pens_frm_movement += self.model.parameters.neighboring_herd_trans * portion_I
             #print(herds[i].statevars.trans_btwn_pens_frm_movement)
     
     # Third pathway of infection among areas in the farm
