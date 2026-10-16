@@ -526,7 +526,7 @@ parameters:
     # New [0.30354651 4.64530697 0.50488372 0.61573385]
   force_of_infection_int:
     desc: 'The rate at which a disease is transmitted from I to S (/week)'
-    value: 'transmission_rate * total_I / total_herd'
+    value: 'transmission_rate * DIV(total_I, total_herd)'
   mean_bp_trans:
     desc: 'Mean of between-pen transmission rate'
     value: '7 * (10 ** -8)'
